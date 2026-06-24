@@ -9,9 +9,9 @@
   --card: #ffffff;
   --line: #e2e8df;
   --muted: #6f766e;
-  --accent: var(--red);      /* capture + export buttons */
+  --accent: var(--red);
   --accent-dark: var(--red-dark);
-  --danger: var(--red-dark); /* destructive: Stop, Clear */
+  --danger: var(--red-dark);
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 
@@ -43,6 +43,29 @@ html, body {
 
 /* ---------- Layout ---------- */
 main { padding: 14px; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------- Station tabs ---------- */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 14px 0;
+}
+.tab {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 8px;
+  border: 2px solid var(--green);
+  background: #fff;
+  color: var(--green-dark);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .05s ease;
+}
+.tab:active { transform: scale(0.97); }
+.tab.active { background: var(--green); color: #fff; }
 
 .card {
   background: var(--card);
@@ -118,7 +141,7 @@ main { padding: 14px; max-width: 760px; margin: 0 auto; display: flex; flex-dire
 .table-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .badge { background: var(--green); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 10px; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 460px; }
 th, td { padding: 10px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
 th { background: var(--green-tint); font-size: 12px; color: var(--green-dark); position: sticky; top: 0; }
 tbody tr:last-child td { border-bottom: none; }
