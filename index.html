@@ -20,25 +20,28 @@
     </div>
   </header>
 
+  <!-- ============ STATION TABS ============ -->
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-station="1">Station 1</button>
+    <button class="tab" data-station="2">Station 2</button>
+    <button class="tab" data-station="3">Station 3</button>
+  </nav>
+
   <main>
-    <!-- ============ STUDY SETUP (entered once) ============ -->
+    <!-- ============ SETUP (per station, entered once) ============ -->
     <section class="card">
-      <h2>Study setup</h2>
+      <h2>Setup — <span id="setupStation">Station 1</span></h2>
       <div class="field-grid">
-        <label class="field">
-          <span>Station number</span>
-          <input id="station" type="number" inputmode="numeric" min="1" placeholder="e.g. 1" />
-        </label>
         <label class="field">
           <span>Cheese name</span>
           <input id="cheese" type="text" placeholder="e.g. Cheddar" />
         </label>
-        <label class="field field-wide">
+        <label class="field">
           <span>Activity</span>
           <input id="activity" type="text" placeholder="e.g. Cutting curd" />
         </label>
       </div>
-      <p class="hint">Set these once for the study. Each <strong>station</strong> becomes its own sheet in Excel.</p>
+      <p class="hint">Set once per station. This station saves to its own sheet in Excel.</p>
     </section>
 
     <!-- ============ STOPWATCH ============ -->
@@ -52,25 +55,23 @@
         <button id="lap" class="btn btn-accent">Lap</button>
         <button id="reset" class="btn btn-ghost">Reset</button>
       </div>
-      <p class="hint">Tap <strong>Lap</strong> to save an entry — the activity timer restarts from 0 and the total keeps running.</p>
+      <p class="hint">Tap <strong>Lap</strong> to save that activity's time — the timer restarts from 0 for the next one.</p>
     </section>
 
     <!-- ============ DATA TABLE ============ -->
     <section class="card">
       <div class="table-head">
-        <h2>Recorded data</h2>
+        <h2>Entries — <span id="tableStation">Station 1</span></h2>
         <span id="rowCount" class="badge">0 entries</span>
       </div>
       <div class="table-wrap">
         <table id="dataTable">
           <thead>
             <tr>
-              <th>Stn</th>
-              <th>Activity</th>
               <th>#</th>
+              <th>Activity</th>
               <th>Activity time</th>
               <th>Between</th>
-              <th>Total</th>
               <th>Time</th>
               <th></th>
             </tr>
@@ -80,8 +81,8 @@
       </div>
 
       <div class="actions">
-        <button id="exportBtn" class="btn btn-accent btn-block">⬇ Export to Excel (.xlsx)</button>
-        <button id="clearBtn" class="btn btn-danger btn-block">Clear all data</button>
+        <button id="exportBtn" class="btn btn-accent btn-block">⬇ Export to Excel — all stations (.xlsx)</button>
+        <button id="clearBtn" class="btn btn-danger btn-block">Clear this station's data</button>
       </div>
     </section>
   </main>
