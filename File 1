@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#f5b301" />
+  <title>Quality Cheese — Time &amp; Motion Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- SheetJS: builds the multi-sheet Excel workbook in the browser -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot">🧀</span>
+      <div>
+        <h1>Quality Cheese</h1>
+        <p>Time &amp; Motion Study</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ SETTINGS ============ -->
+    <section class="card">
+      <div class="field-grid">
+        <label class="field">
+          <span>Station number</span>
+          <input id="station" type="number" inputmode="numeric" min="1" placeholder="e.g. 1" />
+        </label>
+        <label class="field">
+          <span>Cheese name</span>
+          <input id="cheese" type="text" placeholder="e.g. Cheddar" />
+        </label>
+      </div>
+      <p class="hint">New rows are saved to <strong>Station <span id="stationEcho">—</span></strong>. Each station becomes its own sheet in Excel.</p>
+    </section>
+
+    <!-- ============ STOPWATCH ============ -->
+    <section class="card stopwatch">
+      <div id="display" class="display">00:00.0</div>
+      <div class="sw-buttons">
+        <button id="startStop" class="btn btn-primary">Start</button>
+        <button id="lap" class="btn btn-ghost">Lap</button>
+        <button id="reset" class="btn btn-ghost">Reset</button>
+      </div>
+      <div class="sw-capture">
+        <button id="useActivity" class="btn btn-accent">↓ Use as Activity time</button>
+        <button id="useBetween" class="btn btn-accent">↓ Use as Between time</button>
+      </div>
+      <ul id="lapList" class="lap-list"></ul>
+    </section>
+
+    <!-- ============ NEW ROW ENTRY ============ -->
+    <section class="card">
+      <h2>Add observation</h2>
+      <div class="field-grid">
+        <label class="field">
+          <span>Activity</span>
+          <input id="activity" type="text" placeholder="e.g. Cutting curd" />
+        </label>
+        <label class="field">
+          <span>Labour (workers)</span>
+          <input id="labour" type="number" inputmode="numeric" min="0" placeholder="e.g. 2" />
+        </label>
+        <label class="field">
+          <span>Time per activity</span>
+          <input id="activityTime" type="text" inputmode="decimal" placeholder="mm:ss or seconds" />
+        </label>
+        <label class="field">
+          <span>Time between activities</span>
+          <input id="betweenTime" type="text" inputmode="decimal" placeholder="mm:ss or seconds" />
+        </label>
+      </div>
+      <button id="addRow" class="btn btn-primary btn-block">+ Add to table</button>
+    </section>
+
+    <!-- ============ DATA TABLE ============ -->
+    <section class="card">
+      <div class="table-head">
+        <h2>Recorded data</h2>
+        <span id="rowCount" class="badge">0 rows</span>
+      </div>
+      <div class="table-wrap">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th>Stn</th>
+              <th>Cheese</th>
+              <th>Activity</th>
+              <th>Activity time</th>
+              <th>Between</th>
+              <th>Labour</th>
+              <th>Time</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button id="exportBtn" class="btn btn-accent btn-block">⬇ Export to Excel (.xlsx)</button>
+        <button id="clearBtn" class="btn btn-danger btn-block">Clear all data</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Data is saved on this device automatically.</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
