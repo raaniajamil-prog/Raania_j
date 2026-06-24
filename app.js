@@ -1,30 +1,36 @@
 /* ============================================================
    Quality Cheese — Time & Motion Dashboard
-   Lap-based cycle timing: each Lap saves an entry (its activity
-   time + running total). Station/Activity/Cheese set once.
+   Three station "pages" (tabs). Each Lap saves one entry (its
+   own activity time). Running total shown live but not stored.
    Multi-sheet Excel export (one sheet per station).
    ============================================================ */
 
-const STORAGE_KEY = "qc_time_motion_rows_v2";
-const SETTINGS_KEY = "qc_time_motion_settings_v2";
+const STATIONS = ["1", "2", "3"];
+const ROWS_KEY = "qc_tm_rows_v3";
+const SETTINGS_KEY = "qc_tm_settings_v3";   // { "1": {activity, cheese}, ... }
+const ACTIVE_KEY = "qc_tm_active_v3";
 
 /* ---------- State ---------- */
-let rows = loadRows();          // array of entry objects
+let rows = loadRows();          // every entry, across all stations
+let settings = loadSettings();  // per-station activity + cheese
+let activeStation = localStorage.getItem(ACTIVE_KEY) || "1";
+
 let elapsed = 0;                // total stopwatch ms (across pauses)
 let running = false;
-let startTime = 0;              // performance.now() at last start
+let startTime = 0;
 let rafId = null;
 let lastLapMs = 0;              // total-ms value at the previous lap
-let lapCounter = 0;             // entry number within the current run
 
 /* ---------- Element refs ---------- */
 const $ = (id) => document.getElementById(id);
 const els = {
-  station: $("station"),
+  tabs: $("tabs"),
+  setupStation: $("setupStation"),
+  tableStation: $("tableStation"),
   cheese: $("cheese"),
   activity: $("activity"),
-  display: $("display"),         // total time
-  lapDisplay: $("lapDisplay"),   // current activity (current lap)
+  display: $("display"),
+  lapDisplay: $("lapDisplay"),
   startStop: $("startStop"),
   lap: $("lap"),
   reset: $("reset"),
@@ -35,10 +41,9 @@ const els = {
 };
 
 /* ============================================================
-   Time formatting helpers
+   Time helpers
    ============================================================ */
 
-// ms -> "mm:ss.t"
 function fmtStopwatch(ms) {
   const totalSec = ms / 1000;
   const m = Math.floor(totalSec / 60);
@@ -47,7 +52,6 @@ function fmtStopwatch(ms) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${t}`;
 }
 
-// seconds -> "mm:ss"
 function secToMMSS(sec) {
   if (sec == null || isNaN(sec)) return "";
   const m = Math.floor(sec / 60);
@@ -55,7 +59,6 @@ function secToMMSS(sec) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-// Accepts "mm:ss", "h:mm:ss", or plain seconds/decimal -> seconds (number) or null
 function parseTimeToSeconds(value) {
   if (value == null) return null;
   const v = String(value).trim();
@@ -110,15 +113,14 @@ function stopStopwatch() {
   els.startStop.classList.remove("btn-danger");
 }
 
-function resetStopwatch() {
-  if (running || elapsed > 0) {
-    if (!confirm("Reset the stopwatch to zero? (Your saved entries in the table are kept.)")) return;
+function resetStopwatch(silent) {
+  if (!silent && (running || elapsed > 0)) {
+    if (!confirm("Reset the stopwatch to zero? (Your saved entries are kept.)")) return;
   }
   running = false;
   cancelAnimationFrame(rafId);
   elapsed = 0;
   lastLapMs = 0;
-  lapCounter = 0;
   els.lapDisplay.textContent = fmtStopwatch(0);
   els.display.textContent = fmtStopwatch(0);
   els.startStop.textContent = "Start";
@@ -127,18 +129,12 @@ function resetStopwatch() {
 }
 
 /* ============================================================
-   Lap = save an entry, restart the activity timer
+   Lap = save one entry for the active station
    ============================================================ */
 
 function recordLap() {
   if (!running) {
     toast("Press Start first");
-    return;
-  }
-  const station = els.station.value.trim();
-  if (!station) {
-    toast("Enter a station number first");
-    els.station.focus();
     return;
   }
   const activity = els.activity.value.trim();
@@ -151,19 +147,15 @@ function recordLap() {
   const totalMs = currentTotalMs();
   const lapMs = totalMs - lastLapMs;
   if (lapMs < 50) return; // ignore accidental double-taps
-
   lastLapMs = totalMs;
-  lapCounter += 1;
 
   const now = new Date();
   rows.push({
-    station,
+    station: activeStation,
     activity,
     cheese: els.cheese.value.trim(),
-    lap: lapCounter,
     activitySec: Math.round(lapMs / 100) / 10,   // 0.1s precision
-    betweenSec: null,                            // filled in by hand if wanted
-    totalSec: Math.round(totalMs / 100) / 10,
+    betweenSec: null,                            // typed in by hand if wanted
     time: now.toLocaleTimeString(),
     date: now.toLocaleDateString(),
     iso: now.toISOString(),
@@ -171,72 +163,96 @@ function recordLap() {
 
   saveRows();
   renderTable();
-  toast(`Activity #${lapCounter} saved`);
+  toast("Activity saved");
 }
 
 /* ============================================================
-   Settings (station + activity + cheese) persistence
-   ============================================================ */
-
-function loadSettings() {
-  try {
-    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
-    if (s.station != null) els.station.value = s.station;
-    if (s.activity != null) els.activity.value = s.activity;
-    if (s.cheese != null) els.cheese.value = s.cheese;
-  } catch (e) { /* ignore */ }
-}
-
-function saveSettings() {
-  localStorage.setItem(
-    SETTINGS_KEY,
-    JSON.stringify({
-      station: els.station.value,
-      activity: els.activity.value,
-      cheese: els.cheese.value,
-    })
-  );
-}
-
-/* ============================================================
-   Rows: persistence + rendering
+   Persistence
    ============================================================ */
 
 function loadRows() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch (e) {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(ROWS_KEY)) || []; }
+  catch (e) { return []; }
+}
+function saveRows() {
+  localStorage.setItem(ROWS_KEY, JSON.stringify(rows));
 }
 
-function saveRows() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; }
+  catch (e) { return {}; }
 }
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+/* ============================================================
+   Station switching
+   ============================================================ */
+
+function switchStation(station) {
+  if (!STATIONS.includes(station)) return;
+  // Save current field values to the station we're leaving.
+  saveCurrentFields();
+  activeStation = station;
+  localStorage.setItem(ACTIVE_KEY, activeStation);
+  resetStopwatch(true);          // fresh timer for the new station
+  loadCurrentFields();
+  refreshStationLabels();
+  renderTable();
+}
+
+function saveCurrentFields() {
+  settings[activeStation] = {
+    activity: els.activity.value,
+    cheese: els.cheese.value,
+  };
+  saveSettings();
+}
+
+function loadCurrentFields() {
+  const s = settings[activeStation] || {};
+  els.activity.value = s.activity || "";
+  els.cheese.value = s.cheese || "";
+}
+
+function refreshStationLabels() {
+  const label = `Station ${activeStation}`;
+  els.setupStation.textContent = label;
+  els.tableStation.textContent = label;
+  [...els.tabs.querySelectorAll(".tab")].forEach((b) => {
+    b.classList.toggle("active", b.dataset.station === activeStation);
+  });
+}
+
+/* ============================================================
+   Table (active station only)
+   ============================================================ */
 
 function renderTable() {
   els.tableBody.innerHTML = "";
-  if (rows.length === 0) {
+  let count = 0;
+  rows.forEach((r, idx) => {
+    if (r.station !== activeStation) return;
+    count += 1;
+    const betweenVal = r.betweenSec != null ? secToMMSS(r.betweenSec) : "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${count}</td>
+      <td>${escapeHtml(r.activity)}</td>
+      <td>${secToMMSS(r.activitySec)}</td>
+      <td><input class="between-input" data-idx="${idx}" inputmode="decimal"
+                 placeholder="mm:ss" value="${betweenVal}" /></td>
+      <td>${escapeHtml(r.time)}</td>
+      <td><button class="del-btn" data-idx="${idx}" aria-label="Delete entry">✕</button></td>`;
+    els.tableBody.appendChild(tr);
+  });
+
+  if (count === 0) {
     els.tableBody.innerHTML =
-      `<tr class="empty-row"><td colspan="8">No entries yet — press Start, then tap Lap for each activity.</td></tr>`;
-  } else {
-    rows.forEach((r, idx) => {
-      const betweenVal = r.betweenSec != null ? secToMMSS(r.betweenSec) : "";
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(r.station)}</td>
-        <td>${escapeHtml(r.activity)}</td>
-        <td>${escapeHtml(r.lap)}</td>
-        <td>${secToMMSS(r.activitySec)}</td>
-        <td><input class="between-input" data-idx="${idx}" inputmode="decimal"
-                   placeholder="mm:ss" value="${betweenVal}" /></td>
-        <td>${secToMMSS(r.totalSec)}</td>
-        <td>${escapeHtml(r.time)}</td>
-        <td><button class="del-btn" data-idx="${idx}" aria-label="Delete entry">✕</button></td>`;
-      els.tableBody.appendChild(tr);
-    });
+      `<tr class="empty-row"><td colspan="6">No entries yet — press Start, then tap Lap for each activity.</td></tr>`;
   }
-  els.rowCount.textContent = `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`;
+  els.rowCount.textContent = `${count} ${count === 1 ? "entry" : "entries"}`;
 }
 
 function escapeHtml(v) {
@@ -263,50 +279,37 @@ function exportExcel() {
   }
 
   const headers = [
-    "Date", "Time", "Cheese Name", "Activity", "Activity #",
+    "Date", "Time", "Cheese Name", "Activity", "#",
     "Activity Time (s)", "Activity Time (mm:ss)",
     "Between (s)", "Between (mm:ss)",
-    "Total Time (s)", "Total Time (mm:ss)",
   ];
-
-  // Group rows by station number.
-  const byStation = {};
-  rows.forEach((r) => {
-    (byStation[r.station] = byStation[r.station] || []).push(r);
-  });
 
   const wb = XLSX.utils.book_new();
 
-  const stationKeys = Object.keys(byStation).sort((a, b) => {
-    const na = parseFloat(a), nb = parseFloat(b);
-    if (!isNaN(na) && !isNaN(nb)) return na - nb;
-    return String(a).localeCompare(String(b));
-  });
-
-  stationKeys.forEach((station) => {
+  STATIONS.forEach((station) => {
     const aoa = [headers];
-    byStation[station].forEach((r) => {
+    let n = 0;
+    rows.forEach((r) => {
+      if (r.station !== station) return;
+      n += 1;
       aoa.push([
         r.date || "",
         r.time || "",
         r.cheese || "",
         r.activity || "",
-        r.lap ?? "",
+        n,
         r.activitySec ?? "",
         secToMMSS(r.activitySec),
         r.betweenSec ?? "",
         secToMMSS(r.betweenSec),
-        r.totalSec ?? "",
-        secToMMSS(r.totalSec),
       ]);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"] = [
-      { wch: 11 }, { wch: 11 }, { wch: 16 }, { wch: 22 }, { wch: 9 },
-      { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
+      { wch: 11 }, { wch: 11 }, { wch: 16 }, { wch: 22 }, { wch: 5 },
+      { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 },
     ];
-    const safeName = `Station ${station}`.slice(0, 31).replace(/[\\\/\?\*\[\]:]/g, "");
-    XLSX.utils.book_append_sheet(wb, ws, safeName);
+    XLSX.utils.book_append_sheet(wb, ws, `Station ${station}`);
   });
 
   const stamp = new Date().toISOString().slice(0, 10);
@@ -336,23 +339,28 @@ function toast(msg) {
    Wire up events
    ============================================================ */
 
+els.tabs.addEventListener("click", (e) => {
+  const tab = e.target.closest(".tab");
+  if (tab) switchStation(tab.dataset.station);
+});
+
 els.startStop.addEventListener("click", () => (running ? stopStopwatch() : startStopwatch()));
 els.lap.addEventListener("click", recordLap);
-els.reset.addEventListener("click", resetStopwatch);
+els.reset.addEventListener("click", () => resetStopwatch(false));
 
 els.exportBtn.addEventListener("click", exportExcel);
 
 els.clearBtn.addEventListener("click", () => {
-  if (rows.length === 0) { toast("Nothing to clear"); return; }
-  if (confirm(`Delete all ${rows.length} saved entries? This cannot be undone.\n\nTip: export to Excel first if you want a backup.`)) {
-    rows = [];
+  const mine = rows.filter((r) => r.station === activeStation).length;
+  if (mine === 0) { toast("Nothing to clear for this station"); return; }
+  if (confirm(`Delete all ${mine} entries for Station ${activeStation}? This cannot be undone.\n\nTip: export to Excel first if you want a backup.`)) {
+    rows = rows.filter((r) => r.station !== activeStation);
     saveRows();
     renderTable();
-    toast("All data cleared");
+    toast(`Station ${activeStation} cleared`);
   }
 });
 
-// Table: delete buttons + editable "between" fields.
 els.tableBody.addEventListener("click", (e) => {
   const btn = e.target.closest(".del-btn");
   if (btn) deleteRow(parseInt(btn.dataset.idx, 10));
@@ -367,13 +375,13 @@ els.tableBody.addEventListener("input", (e) => {
   }
 });
 
-// Persist the once-per-study fields as they're typed.
-els.station.addEventListener("input", saveSettings);
-els.activity.addEventListener("input", saveSettings);
-els.cheese.addEventListener("input", saveSettings);
+// Persist setup fields as they're typed (to the active station).
+els.activity.addEventListener("input", saveCurrentFields);
+els.cheese.addEventListener("input", saveCurrentFields);
 
 /* ---------- Init ---------- */
-loadSettings();
+loadCurrentFields();
+refreshStationLabels();
 renderTable();
 els.lapDisplay.textContent = fmtStopwatch(0);
 els.display.textContent = fmtStopwatch(0);
